@@ -37,9 +37,7 @@ export const coursesAPI = {
   deleteChapter: (id) => apiClient.delete(`/courses/admin/chapters/${id}/`),
 
   getAdminVideos: (params) => apiClient.get('/courses/admin/videos/', { params }),
-  createVideo: (data) => apiClient.post('/courses/admin/videos/', data, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  createVideo: (data) => apiClient.post('/courses/admin/videos/', data),
   updateVideo: (id, data) => apiClient.put(`/courses/admin/videos/${id}/`, data),
   deleteVideo: (id) => apiClient.delete(`/courses/admin/videos/${id}/`),
 };
