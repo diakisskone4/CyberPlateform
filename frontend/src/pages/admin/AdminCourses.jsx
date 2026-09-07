@@ -21,61 +21,9 @@ const AdminCourses = () => {
   const [certForm, setCertForm] = useState({ title: '', level: 'BEGINNER', price: 25000, estimated_hours: 20, description: '' });
   const [moduleForm, setModuleForm] = useState({ certification: '', title: '', order: 1, price: 10000, description: '' });
   const [chapterForm, setChapterForm] = useState({ module: '', title: '', order: 1, description: '' });
-  const [videoForm, setVideoForm] = useState({ chapter: '', title: '', order: 1, video_file: null, duration_seconds: 400, is_free_override: false });
+  const [videoForm, setVideoForm] = useState({ chapter: '', title: '', order: 1, video_url: '', duration_seconds: 400, is_free_override: false });
   const [selectedChapterId, setSelectedChapterId] = useState(null);
   const [formError, setFormError] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
-  // Remplace par tes vraies valeurs Cloudinary
-  const CLOUDINARY_CLOUD_NAME = 'wsmctlkz';
-  const CLOUDINARY_UPLOAD_PRESET = 'cyberwta_videos';
-
-  // Upload par morceaux (chunks) pour les gros fichiers vidéo (> 100 Mo),
-  // requis par Cloudinary même sur le plan gratuit.
-  const uploadLargeVideoToCloudinary = async (file, onProgress) => {
-    const chunkSize = 20 * 1024 * 1024; // 20 Mo par morceau
-    const totalSize = file.size;
-    const uploadId = `uqid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    let start = 0;
-    let lastResponseData = null;
-
-    while (start < totalSize) {
-      const end = Math.min(start + chunkSize, totalSize);
-      const chunk = file.slice(start, end);
-
-      const formData = new FormData();
-      formData.append('file', chunk);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-      formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
-
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,
-        {
-          method: 'POST',
-          headers: {
-            'X-Unique-Upload-Id': uploadId,
-            'Content-Range': `bytes ${start}-${end - 1}/${totalSize}`,
-          },
-          body: formData,
-        }
-      );
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Échec upload (${res.status}): ${errText}`);
-      }
-
-      lastResponseData = await res.json();
-      start = end;
-
-      if (onProgress) {
-        onProgress(Math.round((start / totalSize) * 100));
-      }
-    }
-
-    return lastResponseData; // contient secure_url une fois le dernier morceau traité
-  };
 
   useEffect(() => {
     fetchCertifications();
@@ -152,39 +100,18 @@ const AdminCourses = () => {
     e.preventDefault();
     setFormError('');
     try {
-      let videoUrl = '';
-
-      if (videoForm.video_file) {
-        setIsUploading(true);
-        setUploadProgress(0);
-
-        const cloudData = await uploadLargeVideoToCloudinary(
-          videoForm.video_file,
-          (pct) => setUploadProgress(pct)
-        );
-
-        setIsUploading(false);
-
-        if (!cloudData?.secure_url) {
-          setFormError("Échec de l'upload vidéo vers Cloudinary. Réessaie.");
-          return;
-        }
-        videoUrl = cloudData.secure_url;
-      }
-
       await coursesAPI.createVideo({
         chapter: selectedChapterId,
         title: videoForm.title,
         order: videoForm.order,
         duration_seconds: videoForm.duration_seconds,
         is_free_override: videoForm.is_free_override,
-        video_url: videoUrl,
+        video_url: videoForm.video_url,
       });
 
       setVideoModalOpen(false);
       loadFullCertification(selectedCert.slug);
     } catch (err) {
-      setIsUploading(false);
       setFormError(err.message || formatApiError(err));
     }
   };
@@ -371,7 +298,7 @@ const AdminCourses = () => {
                             <button
                               onClick={() => {
                                 setSelectedChapterId(ch.id);
-                                setVideoForm({ chapter: ch.id, title: '', order: (ch.videos?.length || 0) + 1, video_file: null, duration_seconds: 420, is_free_override: false });
+                                setVideoForm({ chapter: ch.id, title: '', order: (ch.videos?.length || 0) + 1, video_url: '', duration_seconds: 420, is_free_override: false });
                                 setVideoModalOpen(true);
                               }}
                               className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
@@ -572,13 +499,14 @@ const AdminCourses = () => {
                 />
               </div>
               <div>
-                <label className="block text-slate-300 mb-1">Fichier vidéo</label>
+                <label className="block text-slate-300 mb-1">Lien de la vidéo (YouTube, Vimeo, ou lien direct .mp4)</label>
                 <input
-                  type="file"
+                  type="url"
                   required
-                  accept="video/*"
-                  onChange={(e) => setVideoForm({ ...videoForm, video_file: e.target.files?.[0] || null })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-500 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-950"
+                  placeholder="https://www.youtube.com/watch?v=... ou https://..."
+                  value={videoForm.video_url}
+                  onChange={(e) => setVideoForm({ ...videoForm, video_url: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-600"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -606,24 +534,11 @@ const AdminCourses = () => {
               <p className="text-[11px] text-slate-500 font-mono">
                 Formats vidéo acceptés par votre navigateur. Par défaut, les 2 premières vidéos de chaque module sont gratuites.
               </p>
-              {isUploading && (
-                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Upload en cours... {uploadProgress}%
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-cyan-400 transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
+
               <div className="pt-2 flex justify-end gap-2">
                 <button type="button" onClick={() => setVideoModalOpen(false)} className="btn-secondary text-xs px-3 py-1.5">Annuler</button>
-                <button type="submit" disabled={isUploading} className="btn-cyber text-xs px-4 py-1.5 disabled:opacity-50">
-                  {isUploading ? 'Envoi en cours...' : 'Enregistrer la vidéo'}
+                <button type="submit" className="btn-cyber text-xs px-4 py-1.5">
+                  Enregistrer la vidéo
                 </button>
               </div>
             </form>
