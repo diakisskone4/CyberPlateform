@@ -1,2 +1,2 @@
 release: python manage.py migrate
-web: gunicorn cyberwta_core.wsgi --log-file -
+web: gunicorn cyberwta_core.wsgi --timeout 120 --log-file -
