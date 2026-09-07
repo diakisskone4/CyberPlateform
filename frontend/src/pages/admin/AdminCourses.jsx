@@ -25,10 +25,57 @@ const AdminCourses = () => {
   const [selectedChapterId, setSelectedChapterId] = useState(null);
   const [formError, setFormError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Remplace par tes vraies valeurs Cloudinary
   const CLOUDINARY_CLOUD_NAME = 'wsmctlkz';
   const CLOUDINARY_UPLOAD_PRESET = 'cyberwta_videos';
+
+  // Upload par morceaux (chunks) pour les gros fichiers vidéo (> 100 Mo),
+  // requis par Cloudinary même sur le plan gratuit.
+  const uploadLargeVideoToCloudinary = async (file, onProgress) => {
+    const chunkSize = 20 * 1024 * 1024; // 20 Mo par morceau
+    const totalSize = file.size;
+    const uploadId = `uqid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let start = 0;
+    let lastResponseData = null;
+
+    while (start < totalSize) {
+      const end = Math.min(start + chunkSize, totalSize);
+      const chunk = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append('file', chunk);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,
+        {
+          method: 'POST',
+          headers: {
+            'X-Unique-Upload-Id': uploadId,
+            'Content-Range': `bytes ${start}-${end - 1}/${totalSize}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Échec upload (${res.status}): ${errText}`);
+      }
+
+      lastResponseData = await res.json();
+      start = end;
+
+      if (onProgress) {
+        onProgress(Math.round((start / totalSize) * 100));
+      }
+    }
+
+    return lastResponseData; // contient secure_url une fois le dernier morceau traité
+  };
 
   useEffect(() => {
     fetchCertifications();
@@ -107,28 +154,24 @@ const AdminCourses = () => {
     try {
       let videoUrl = '';
 
-      // 1) Si un fichier vidéo a été choisi, on l'envoie DIRECTEMENT à Cloudinary
       if (videoForm.video_file) {
         setIsUploading(true);
-        const cloudForm = new FormData();
-        cloudForm.append('file', videoForm.video_file);
-        cloudForm.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+        setUploadProgress(0);
 
-        const cloudRes = await fetch(
-          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,
-          { method: 'POST', body: cloudForm }
+        const cloudData = await uploadLargeVideoToCloudinary(
+          videoForm.video_file,
+          (pct) => setUploadProgress(pct)
         );
-        const cloudData = await cloudRes.json();
+
         setIsUploading(false);
 
-        if (!cloudData.secure_url) {
+        if (!cloudData?.secure_url) {
           setFormError("Échec de l'upload vidéo vers Cloudinary. Réessaie.");
           return;
         }
         videoUrl = cloudData.secure_url;
       }
 
-      // 2) On envoie seulement les métadonnées + l'URL à Django (JSON, pas de fichier)
       await coursesAPI.createVideo({
         chapter: selectedChapterId,
         title: videoForm.title,
@@ -142,7 +185,7 @@ const AdminCourses = () => {
       loadFullCertification(selectedCert.slug);
     } catch (err) {
       setIsUploading(false);
-      setFormError(formatApiError(err));
+      setFormError(err.message || formatApiError(err));
     }
   };
 
@@ -564,9 +607,17 @@ const AdminCourses = () => {
                 Formats vidéo acceptés par votre navigateur. Par défaut, les 2 premières vidéos de chaque module sont gratuites.
               </p>
               {isUploading && (
-                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Upload de la vidéo en cours, merci de patienter...
+                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Upload en cours... {uploadProgress}%
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-cyan-400 transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
                 </div>
               )}
               <div className="pt-2 flex justify-end gap-2">
