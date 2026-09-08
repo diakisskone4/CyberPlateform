@@ -10,6 +10,22 @@ import { coursesAPI, learningAPI, interactionsAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import PaymentModal from '../components/PaymentModal';
 
+// Convertit un lien YouTube (watch, court youtu.be, ou déjà embed) en URL d'intégration.
+// Retourne null si ce n'est pas un lien YouTube (auquel cas on utilise le lecteur <video> classique).
+const getYouTubeEmbedUrl = (url) => {
+  if (!url) return null;
+  const patterns = [
+    /youtube\.com\/watch\?v=([^&]+)/,
+    /youtu\.be\/([^?]+)/,
+    /youtube\.com\/embed\/([^?]+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return `https://www.youtube.com/embed/${match[1]}`;
+  }
+  return null;
+};
+
 const LearnView = () => {
   const { videoId } = useParams();
   const { user, isAuthenticated } = useAuth();
@@ -284,17 +300,27 @@ const LearnView = () => {
           {/* Cyber Video Container */}
           <div className="relative rounded-2xl overflow-hidden glass-card border border-slate-700/80 bg-black aspect-video shadow-2xl shadow-cyan-500/5">
             {videoData?.playback_url ? (
-              <video
-                ref={videoRef}
-                controls
-                autoPlay={false}
-                src={videoData.playback_url}
-                onTimeUpdate={handleTimeUpdate}
-                onEnded={handleVideoEnded}
-                className="w-full h-full object-contain"
-              >
-                Votre navigateur ne supporte pas la balise vidéo.
-              </video>
+              getYouTubeEmbedUrl(videoData.playback_url) ? (
+                <iframe
+                  src={getYouTubeEmbedUrl(videoData.playback_url)}
+                  className="w-full h-full"
+                  title={currentVideo?.title || 'Vidéo'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              ) : (
+                <video
+                  ref={videoRef}
+                  controls
+                  autoPlay={false}
+                  src={videoData.playback_url}
+                  onTimeUpdate={handleTimeUpdate}
+                  onEnded={handleVideoEnded}
+                  className="w-full h-full object-contain"
+                >
+                  Votre navigateur ne supporte pas la balise vidéo.
+                </video>
+              )
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
                 <AlertCircle className="w-10 h-10 text-orange-400" />
