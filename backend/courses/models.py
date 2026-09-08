@@ -110,18 +110,18 @@ class Video(models.Model):
     @property
     def is_free_by_rule(self):
         """
-        Règle : Les 2 premières vidéos de chaque module sont gratuites.
-        Ou si is_free_override est True.
+        Règle : Le Module 1 (premier module, par ordre d'affichage) de chaque
+        certification est entièrement gratuit. Tous les autres modules sont payants.
+        Ou si is_free_override est True sur la vidéo elle-même (force le gratuit
+        au cas par cas, quel que soit le module).
         """
         if self.is_free_override:
             return True
-        # Récupérer toutes les vidéos du module ordonnées par chapitre.order et video.order
-        module_videos = list(
-            Video.objects.filter(chapter__module=self.chapter.module)
-            .order_by('chapter__order', 'order', 'id')
-            .values_list('id', flat=True)
-        )
-        if self.id in module_videos[:2]:
+        module = self.chapter.module
+        first_module = Module.objects.filter(
+            certification=module.certification
+        ).order_by('order', 'id').first()
+        if first_module and module.id == first_module.id:
             return True
         return False
 

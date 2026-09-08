@@ -56,6 +56,13 @@ class ModuleSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_accessible(self, obj):
+        # Le premier module (Module 1) de chaque certification est toujours accessible.
+        first_module = Module.objects.filter(
+            certification=obj.certification
+        ).order_by('order', 'id').first()
+        if first_module and obj.id == first_module.id:
+            return True
+
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False

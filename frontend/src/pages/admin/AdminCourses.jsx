@@ -532,7 +532,7 @@ const AdminCourses = () => {
                 </div>
               </div>
               <p className="text-[11px] text-slate-500 font-mono">
-                Formats vidéo acceptés par votre navigateur. Par défaut, les 2 premières vidéos de chaque module sont gratuites.
+                Colle un lien YouTube, Vimeo, ou un lien direct .mp4. Le Module 1 de chaque certification est automatiquement gratuit pour tous.
               </p>
 
               <div className="pt-2 flex justify-end gap-2">
