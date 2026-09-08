@@ -9,7 +9,7 @@ import { learningAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 const QuizView = () => {
-  const { quizId } = useParams();
+  const { quizId: moduleIdParam } = useParams();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -22,7 +22,7 @@ const QuizView = () => {
 
   useEffect(() => {
     fetchQuiz();
-  }, [quizId]);
+  }, [moduleIdParam]);
 
   // Countdown timer
   useEffect(() => {
@@ -46,7 +46,7 @@ const QuizView = () => {
   const fetchQuiz = async () => {
     setLoading(true);
     try {
-      const res = await learningAPI.getQuizDetail(quizId);
+      const res = await learningAPI.getQuizByModule(moduleIdParam);
       setQuizData(res.data.quiz);
       setTimeLeft((res.data.quiz.time_limit_minutes || 15) * 60);
     } catch (err) {
@@ -70,7 +70,7 @@ const QuizView = () => {
 
     setSubmitting(true);
     try {
-      const res = await learningAPI.submitQuiz(quizId, { answers: selectedAnswers });
+      const res = await learningAPI.submitQuiz(quizData.id, { answers: selectedAnswers });
       setResults(res.data);
 
       if (res.data.passed) {

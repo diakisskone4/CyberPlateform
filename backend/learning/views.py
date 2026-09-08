@@ -153,6 +153,31 @@ class StudentQuizDetailView(APIView):
         })
 
 
+class ModuleQuizDetailView(APIView):
+    """
+    Résout le quiz rattaché à un module donné (le frontend ne connaît que
+    l'ID du module, pas l'ID du quiz lui-même).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, module_id):
+        quiz = get_object_or_404(
+            Quiz, module_id=module_id, quiz_type=Quiz.QuizType.MODULE_QUIZ
+        )
+        serializer = StudentQuizSerializer(quiz)
+
+        previous_attempts = QuizAttempt.objects.filter(user=request.user, quiz=quiz)
+        has_passed = previous_attempts.filter(passed=True).exists()
+        best_score = previous_attempts.order_by('-percentage').first()
+
+        return Response({
+            "quiz": serializer.data,
+            "has_passed": has_passed,
+            "best_percentage": best_score.percentage if best_score else None,
+            "total_attempts": previous_attempts.count()
+        })
+
+
 class QuizSubmitView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

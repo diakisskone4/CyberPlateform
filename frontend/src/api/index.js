@@ -62,6 +62,7 @@ export const learningAPI = {
   markChapterComplete: (chapterId) => apiClient.post(`/learning/chapters/${chapterId}/complete/`),
 
   getQuizDetail: (quizId) => apiClient.get(`/learning/quizzes/${quizId}/`),
+  getQuizByModule: (moduleId) => apiClient.get(`/learning/modules/${moduleId}/quiz/`),
   submitQuiz: (quizId, data) => apiClient.post(`/learning/quizzes/${quizId}/submit/`, data),
 
   // Admin

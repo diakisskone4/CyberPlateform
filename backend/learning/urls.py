@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     UpdateVideoProgressView, ResumeCourseView, MarkChapterCompleteView,
-    StudentQuizDetailView, QuizSubmitView, AdminQuizViewSet,
+    StudentQuizDetailView, ModuleQuizDetailView, QuizSubmitView, AdminQuizViewSet,
     AdminQuestionViewSet, AdminChoiceViewSet
 )
 
@@ -20,6 +20,7 @@ urlpatterns = [
     # Student Quiz
     path('quizzes/<int:pk>/', StudentQuizDetailView.as_view(), name='student_quiz_detail'),
     path('quizzes/<int:pk>/submit/', QuizSubmitView.as_view(), name='student_quiz_submit'),
+    path('modules/<int:module_id>/quiz/', ModuleQuizDetailView.as_view(), name='module_quiz_detail'),
 
     # Admin Quiz Management
     path('', include(router.urls)),
